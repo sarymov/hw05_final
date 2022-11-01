@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Custom 404{% endblock %}
+{% block content %}
+<p>
+  <h1>Custom 404</h1>
+  <img scr="{% static 'img/404.png' %}">
+  <p>Страницы с адресом {{ path }} не существует</p>
+  <a href="{% url 'posts:main_page' %}">Идите на главную</a>
+</p>
+{% endblock %} 
