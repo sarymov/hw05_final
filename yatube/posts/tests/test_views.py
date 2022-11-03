@@ -1,13 +1,21 @@
+import tempfile
+import shutil
+
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django import forms
 from django.core.cache import cache
-from posts.models import Group, Post, User
+from posts.models import Group, Post, User, Follow
+from django.conf import settings
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 User = get_user_model()
 
+TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class PostURLTests(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -23,6 +31,25 @@ class PostURLTests(TestCase):
             text='Тестовый пост',
             group=cls.group,
         )
+        small_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x02\x00'
+            b'\x01\x00\x80\x00\x00\x00\x00\x00'
+            b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
+            b'\x00\x00\x00\x2C\x00\x00\x00\x00'
+            b'\x02\x00\x01\x00\x00\x02\x02\x0C'
+            b'\x0A\x00\x3B'
+        )
+        uploaded = SimpleUploadedFile(
+            name='small.gif',
+            content=small_gif,
+            content_type='image/gif'
+        )
+        cls.image = uploaded
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def setUp(self):
         self.guest_client = Client()
@@ -51,17 +78,24 @@ class PostURLTests(TestCase):
                 self.assertTemplateUsed(response, template)
 
     def test_index_page_show_correct_context(self):
+        image = self.post.image
+
         response = self.authorized_client.get(reverse('posts:main_page'))
+
         first_object = response.context['page_obj'][0]
+
         post_author_0 = first_object.author
         post_text_0 = first_object.text
         post_group_0 = first_object.group
+
         self.assertEqual(post_author_0, PostURLTests.user)
         self.assertEqual(post_text_0, 'Тестовый пост')
         self.assertEqual(post_group_0, PostURLTests.post.group)
         self.assertIn('page_obj', response.context)
+        self.assertEqual(response.context.get('page_obj')[0].image, image)
 
     def test_group_list_correct_context(self):
+        image = self.post.image
         response = (self.authorized_client.
                     get(reverse(
                         'posts:group_list', kwargs={'slug': 'test-slug'}))
@@ -73,14 +107,18 @@ class PostURLTests(TestCase):
             response.context.get('group').description, 'Тестовое описание'
         )
         self.assertEqual(response.context.get('group').slug, 'test-slug')
+        self.assertEqual(response.context.get('page_obj')[0].image, image)
 
     def test_profile_correct_context(self):
+        image = self.post.image
         response = (self.authorized_client.
                     get(reverse('posts:profile', kwargs={'username': 'auth'}))
                     )
         self.assertEqual(response.context['author'].username, 'auth')
+        self.assertEqual(response.context.get('page_obj')[0].image, image)
 
     def test_post_detail_correct_context(self):
+        image = self.post.image
         response = (self.authorized_client.
                     get(reverse(
                         'posts:post_detail',
@@ -89,6 +127,7 @@ class PostURLTests(TestCase):
         self.assertEqual(
             response.context['post'].id, int(f'{self.post.id}')
         )
+        self.assertEqual(response.context.get('post').image, image)
 
     def test_post_create_correct_context(self):
         response = self.authorized_client.get(reverse('posts:post_create'))
@@ -187,3 +226,45 @@ class PaginatorModelTest(TestCase):
             reverse('posts:profile', kwargs={'username': f'{self.user}'})
         )
         self.assertEqual(len(response.context['page_obj']), 10)
+
+
+class FollowTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user1 = User.objects.create_user(username='auth1')
+        cls.user2 = User.objects.create_user(username='auth2')
+        cls.post = Post.objects.create(
+            text='Тестовый текст',
+            author=cls.user2,
+        )
+
+    def setUp(self):
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user1)
+
+    def test_follow_index(self):
+        follow_url = f'/profile/{self.user2.username}/follow/'
+        self.authorized_client.get(follow_url)
+        response = self.authorized_client.get(reverse('posts:follow_index'))
+        self.assertEqual(response.context.get('page_obj')[0], self.post)
+
+    def test_follow(self):
+        follow_url = f'/profile/{self.user2.username}/follow/'
+        self.authorized_client.get(follow_url)
+        self.assertTrue(
+            Follow.objects.filter(
+                user=self.user1,
+                author=self.user2,
+            ).exists())
+
+    def test_unfollow(self):
+        follow_url = f'/profile/{self.user2.username}/follow/'
+        unfollow_url = f'/profile/{self.user2.username}/unfollow/'
+        self.authorized_client.get(follow_url)
+        self.authorized_client.get(unfollow_url)
+        self.assertFalse(
+            Follow.objects.filter(
+                user=self.user1,
+                author=self.user2,
+            ).exists())
