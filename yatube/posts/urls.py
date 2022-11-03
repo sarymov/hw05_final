@@ -3,6 +3,8 @@ from django.urls import path
 from . import views
 
 app_name = 'posts'
+handler404 = 'core.views.page_not_found'
+handler500 = 'core.views.server_error'
 
 urlpatterns = [
     path('', views.index, name='main_page'),
