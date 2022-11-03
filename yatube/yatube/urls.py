@@ -27,6 +27,8 @@ urlpatterns = [
     path('about/', include('about.urls', namespace='about')),
 ]
 handler404 = 'core.views.page_not_found'
+handler403 = 'core.exceptions.PermissionDenied'
+handler500 = 'core.views.server_error'
 
 if settings.DEBUG:
     urlpatterns += static(
