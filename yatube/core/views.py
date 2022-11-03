@@ -10,10 +10,6 @@ def csrf_failure(request, reason=''):
     return render(request, 'core/403csrf.html')
 
 
-def csrf_failure(request, reason=''):
-    return render(request, 'core/403csrf.html')
-
-
 def server_error(request):
     status = HTTPStatus.INTERNAL_SERVER_ERROR
     return render(request, 'core/500.html', status=status)
