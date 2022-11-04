@@ -1,5 +1,5 @@
 import tempfile
-
+import shutil
 from http import HTTPStatus
 from posts.models import Group, Post, Comment
 from django.contrib.auth import get_user_model
@@ -162,3 +162,18 @@ class PostCreateFormTests(TestCase):
                 author=self.user,
                 image='posts/small.gif'
             ).exists())
+
+        '''Я не много не понимаю какой вариант правильнее: делать через
+        переменную post = Post.objects.... или можно прям так бахнуть
+        self.assertTrue(Post.image...) как в последнем варианте '''
+
+        post = Post.objects.get(pk=self.post.id)
+        self.assertTrue(post.text, form_data['text'])
+        self.assertTrue(post.group, self.group.id)
+        self.assertTrue(post.author, self.user)
+        self.assertTrue(Post.image, form_data['image'])
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)

@@ -31,7 +31,8 @@ class Post(models.Model):
     image = models.ImageField(
         'Картинка',
         upload_to='posts/',
-        blank=True
+        blank=True,
+        null=True
     )
 
     class Meta:
@@ -69,3 +70,6 @@ class Follow(models.Model):
         related_name='following',
         verbose_name='Тот, на кого подписались',
     )
+
+    class Meta:
+        unique_together = ('user', 'author',)
