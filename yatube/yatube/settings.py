@@ -148,5 +148,4 @@ CACHES = {
 }
 
 CSRF_FAILURE_VIEW = 'core.views.csrf_failure'
-
 PAGINATOR_VALUE = 10

@@ -32,7 +32,8 @@ class Post(models.Model):
         'Картинка',
         upload_to='posts/',
         blank=True,
-        null=True
+        null=True,
+
     )
 
     class Meta:
@@ -72,4 +73,4 @@ class Follow(models.Model):
     )
 
     class Meta:
-        unique_together = ('user', 'author',)
+        unique_together = ('user', 'author')

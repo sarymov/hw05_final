@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 from http import HTTPStatus
-
+from django.core.cache import cache
 
 from posts.models import Group, Post, User
 
@@ -31,6 +31,7 @@ class PostURLTests(TestCase):
         self.authorized_client.force_login(self.user)
 
     def test_urls_uses_correct_template(self):
+        cache.clear()
         templates_url_names = {
             '/': 'posts/index.html',
             f'/group/{self.group.slug}/': 'posts/group_list.html',

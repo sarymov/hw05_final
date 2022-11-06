@@ -9,6 +9,7 @@ from django.core.cache import cache
 from posts.models import Group, Post, User, Follow
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.cache import cache
 
 User = get_user_model()
 
@@ -16,21 +17,10 @@ TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
-class PostURLTests(TestCase):
+class PostsURLTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = User.objects.create_user(username='auth')
-        cls.group = Group.objects.create(
-            title='Тестовая группа',
-            slug='test-slug',
-            description='Тестовое описание',
-        )
-        cls.post = Post.objects.create(
-            author=cls.user,
-            text='Тестовый пост',
-            group=cls.group,
-        )
         small_gif = (
             b'\x47\x49\x46\x38\x39\x61\x02\x00'
             b'\x01\x00\x80\x00\x00\x00\x00\x00'
@@ -45,6 +35,18 @@ class PostURLTests(TestCase):
             content_type='image/gif'
         )
         cls.image = uploaded
+        cls.user = User.objects.create_user(username='auth')
+        cls.group = Group.objects.create(
+            title='Тестовая группа',
+            slug='test-slug',
+            description='Тестовое описание'
+        )
+        cls.post = Post.objects.create(
+            text='Тестовый пост',
+            author=cls.user,
+            group=cls.group,
+            image=cls.image,
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -78,8 +80,6 @@ class PostURLTests(TestCase):
                 self.assertTemplateUsed(response, template)
 
     def test_index_page_show_correct_context(self):
-        image = self.post.image
-
         response = self.authorized_client.get(reverse('posts:main_page'))
 
         first_object = response.context['page_obj'][0]
@@ -87,12 +87,13 @@ class PostURLTests(TestCase):
         post_author_0 = first_object.author
         post_text_0 = first_object.text
         post_group_0 = first_object.group
+        post_image_0 = first_object.image
 
-        self.assertEqual(post_author_0, PostURLTests.user)
+        self.assertEqual(post_author_0, self.user)
         self.assertEqual(post_text_0, 'Тестовый пост')
-        self.assertEqual(post_group_0, PostURLTests.post.group)
+        self.assertEqual(post_group_0, self.post.group)
         self.assertIn('page_obj', response.context)
-        self.assertEqual(response.context.get('page_obj')[0].image, image)
+        self.assertEqual(post_image_0, self.post.image)
 
     def test_group_list_correct_context(self):
         image = self.post.image
@@ -107,7 +108,7 @@ class PostURLTests(TestCase):
             response.context.get('group').description, 'Тестовое описание'
         )
         self.assertEqual(response.context.get('group').slug, 'test-slug')
-        self.assertEqual(response.context.get('page_obj')[0].image, image)
+        self.assertEqual(response.context.get('page_obj')[0].image, image)    
 
     def test_profile_correct_context(self):
         image = self.post.image
@@ -116,6 +117,7 @@ class PostURLTests(TestCase):
                     )
         self.assertEqual(response.context['author'].username, 'auth')
         self.assertEqual(response.context.get('page_obj')[0].image, image)
+        cache.clear()
 
     def test_post_detail_correct_context(self):
         image = self.post.image

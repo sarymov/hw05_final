@@ -34,6 +34,11 @@ class PostCreateFormTests(TestCase):
             author=self.user
         )
 
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+
     def test_post_create(self):
         posts_count = Post.objects.count()
         form_data = {
@@ -163,17 +168,8 @@ class PostCreateFormTests(TestCase):
                 image='posts/small.gif'
             ).exists())
 
-        '''Я не много не понимаю какой вариант правильнее: делать через
-        переменную post = Post.objects.... или можно прям так бахнуть
-        self.assertTrue(Post.image...) как в последнем варианте '''
-
         post = Post.objects.get(pk=self.post.id)
         self.assertTrue(post.text, form_data['text'])
-        self.assertTrue(post.group, self.group.id)
+        self.assertTrue(post.group.id, form_data['group'])
         self.assertTrue(post.author, self.user)
-        self.assertTrue(Post.image, form_data['image'])
-
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()
-        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+        self.assertTrue(uploaded, form_data['image'])

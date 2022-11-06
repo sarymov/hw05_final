@@ -4,10 +4,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import PostForm, CommentForm
 from .models import Group, Post, User, Follow
-
-from django.conf import settings
-
 from django.views.decorators.cache import cache_page
+from django.conf import settings
 
 
 def paginate_func(request, posts):
@@ -18,7 +16,6 @@ def paginate_func(request, posts):
 
 @cache_page(20)
 def index(request):
-
     post_list = Post.objects.select_related("group", "author")
     page_obj = paginate_func(request, post_list)
     context = {
@@ -42,12 +39,13 @@ def profile(request, username):
     author = get_object_or_404(User, username=username)
     posts = author.posts.select_related('author', 'group')
     page_obj = paginate_func(request, posts)
-    follow = Follow.objects.filter(author=author)
-
+    follow = request.user.is_authenticated and Follow.objects.filter(
+        user=request.user,
+        author=author).exists()
     context = {
+        'follow': follow,
         'author': author,
         'page_obj': page_obj,
-        'follow': follow,
         'postscount': posts.count(),
     }
     return render(request, 'posts/profile.html', context)

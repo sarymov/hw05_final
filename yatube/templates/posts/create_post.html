@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 {% block title %}
-{% load user_filters %}
 {% if is_edit %}
   Редактировать пост
 {% else %}
   Новый пост
 {% endif %}
 {% endblock %}
+{% load user_filters %}
 {% block content %}
     <div class="container py-5">
       <div class="row justify-content-center">
