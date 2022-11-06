@@ -108,7 +108,7 @@ class PostsURLTests(TestCase):
             response.context.get('group').description, 'Тестовое описание'
         )
         self.assertEqual(response.context.get('group').slug, 'test-slug')
-        self.assertEqual(response.context.get('page_obj')[0].image, image)    
+        self.assertEqual(response.context.get('page_obj')[0].image, image)
 
     def test_profile_correct_context(self):
         image = self.post.image
