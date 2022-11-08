@@ -1,15 +1,14 @@
-import tempfile
 import shutil
+import tempfile
 from http import HTTPStatus
-from posts.models import Group, Post, Comment
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from django.conf import settings
-from django.core.files.uploadedfile import SimpleUploadedFile
 
-from django.urls import reverse
-
+from posts.models import Comment, Group, Post
 
 User = get_user_model()
 
@@ -19,7 +18,7 @@ TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class PostCreateFormTests(TestCase):
     def setUp(self):
-        self.not_authorized = Client()
+        self.guest_client = Client()
         self.user = User.objects.create(username='auth')
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
@@ -61,16 +60,9 @@ class PostCreateFormTests(TestCase):
         self.assertEqual(post.author, self.user)
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
-        self.assertTrue(
-            Post.objects.filter(
-                text=form_data['text'],
-                group=form_data['group'],
-            ).exists()
-        )
-
     def test_post_edit(self):
         post = Post.objects.get(pk=self.post.id)
-        self.new_group = Group.objects.create(
+        new_group = Group.objects.create(
             title='Тестовая группа2',
             slug='test-slug',
             description='Тестовое описание',
@@ -78,7 +70,7 @@ class PostCreateFormTests(TestCase):
         posts_count = Post.objects.count()
         form_data = {
             'text': 'Наш уникальный текст изменили, ау',
-            'group': self.new_group.id
+            'group': new_group.id
         }
         response = self.authorized_client.post(
             reverse('posts:post_edit', kwargs={'post_id': self.post.id}),
@@ -91,12 +83,7 @@ class PostCreateFormTests(TestCase):
             )
         )
         self.assertEqual(Post.objects.count(), posts_count)
-        self.assertTrue(Post.objects.filter(
-            group=self.new_group.id,
-            author=self.user,
-            pub_date=self.post.pub_date
-        ).exists()
-        )
+
         post = Post.objects.get(pk=self.post.id)
         self.assertEqual(post.text, form_data['text'])
         self.assertEqual(post.group.id, form_data['group'])
@@ -114,20 +101,20 @@ class PostCreateFormTests(TestCase):
             follow=True
         )
         self.assertEqual(Comment.objects.count(), comments_count + 1)
-        self.assertTrue(
-            Comment.objects.filter(
-                post=self.post,
-                text='Тестовый коммент',
-                author=self.user,
-            ).exists())
 
-    def test_not_authorized_comment(self):
+        comment = self.post.comments.first()
+        self.assertEqual(Comment.objects.count(), comments_count + 1)
+        self.assertEqual(comment.text, form_data['text'])
+        self.assertEqual(comment.post, self.post)
+        self.assertEqual(comment.author, self.user)
+
+    def test_guest_client_comment(self):
 
         comments_count = Comment.objects.count()
         form_data = {
             'text': 'Тестовый коммент',
         }
-        self.not_authorized.post(
+        self.guest_client.post(
             reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
             data=form_data,
             follow=True
@@ -160,16 +147,9 @@ class PostCreateFormTests(TestCase):
             follow=True
         )
         self.assertEqual(Post.objects.count(), posts_count + 1)
-        self.assertTrue(
-            Post.objects.filter(
-                text='Тестовый текст',
-                group=self.group.id,
-                author=self.user,
-                image='posts/small.gif'
-            ).exists())
 
-        post = Post.objects.get(pk=self.post.id)
+        post = Post.objects.first()
         self.assertTrue(post.text, form_data['text'])
         self.assertTrue(post.group.id, form_data['group'])
-        self.assertTrue(post.author, self.user)
-        self.assertTrue(uploaded, form_data['image'])
+        self.assertEqual(post.author, self.user)
+        self.assertEqual(post.image.name, f'posts/{form_data["image"]}')

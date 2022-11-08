@@ -19,18 +19,55 @@ class PostModelTest(TestCase):
         )
 
     def setUp(self):
+        cache.clear()
         self.guest_client = Client()
         self.authorized_client = Client()
-        self.authorized_client.force_login(self.user)
 
     def test_cache(self):
-        response_1 = self.client.get(reverse('posts:main_page')).content
-        response_2 = self.client.get(reverse('posts:main_page')).content
-        self.assertEqual(response_1, response_2)
-        Post.objects.all().delete
+        initial_response = self.guest_client.get(reverse('posts:main_page'))
+        self.assertIn('page_obj', initial_response.context)
+
+        initial_response_posts_count = len(
+            initial_response.context['page_obj'].object_list)
+        self.assertEqual(initial_response_posts_count, Post.objects.count())
+
+        Post.objects.all().delete()
+
+        self.assertEqual(Post.objects.count(), 0)
+        cached_response = self.guest_client.get(reverse('posts:main_page'))
+        self.assertEqual(initial_response.content, cached_response.content)
         cache.clear()
-        response_3 = self.client.get(reverse('posts:main_page')).content
-        """Вот тут замечал, что у многих assertNotEqual,
-        но он у меня не работает. Путем гугления и тд
-        остановился на assertIsNOt, он хотя бы работает"""
-        self.assertIsNot(response_1, response_3)
+
+        clear_response = self.guest_client.get(reverse('posts:main_page'))
+        self.assertIn('page_obj', clear_response.context)
+        clear_response_posts_count = len(
+            clear_response.context['page_obj'].object_list)
+        self.assertEqual(clear_response_posts_count, 0)
+        self.assertNotEqual(cached_response.content, clear_response.context)
+        cache.clear()
+
+    def test_cache_authorized(self):
+        initial_response = self.authorized_client.get(
+            reverse('posts:main_page'))
+        self.assertIn('page_obj', initial_response.context)
+
+        initial_response_posts_count = len(
+            initial_response.context['page_obj'].object_list)
+        self.assertEqual(initial_response_posts_count, Post.objects.count())
+
+        Post.objects.all().delete()
+
+        self.assertEqual(Post.objects.count(), 0)
+        cached_response = self.authorized_client.get(
+            reverse('posts:main_page'))
+        self.assertEqual(initial_response.content, cached_response.content)
+
+        cache.clear()
+
+        clear_response = self.authorized_client.get(reverse('posts:main_page'))
+        self.assertIn('page_obj', clear_response.context)
+        clear_response_posts_count = len(
+            clear_response.context['page_obj'].object_list)
+        self.assertEqual(clear_response_posts_count, 0)
+        self.assertNotEqual(cached_response.content, clear_response.context)
+        cache.clear()

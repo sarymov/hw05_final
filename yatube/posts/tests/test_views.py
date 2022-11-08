@@ -1,15 +1,15 @@
-import tempfile
 import shutil
+import tempfile
 
+from django import forms
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from django import forms
-from django.core.cache import cache
-from posts.models import Group, Post, User, Follow
-from django.conf import settings
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.core.cache import cache
+
+from posts.models import Follow, Group, Post, User
 
 User = get_user_model()
 
@@ -54,10 +54,10 @@ class PostsURLTests(TestCase):
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def setUp(self):
+        cache.clear()
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
-        cache.clear()
 
     def test_pages_uses_correct_template(self):
         templates_pages_names = {
@@ -81,55 +81,48 @@ class PostsURLTests(TestCase):
 
     def test_index_page_show_correct_context(self):
         response = self.authorized_client.get(reverse('posts:main_page'))
+        self.assertEqual(response.context.get('page_obj')[0], self.post)
+        cache.clear()
 
-        first_object = response.context['page_obj'][0]
-
-        post_author_0 = first_object.author
-        post_text_0 = first_object.text
-        post_group_0 = first_object.group
-        post_image_0 = first_object.image
-
-        self.assertEqual(post_author_0, self.user)
-        self.assertEqual(post_text_0, 'Тестовый пост')
-        self.assertEqual(post_group_0, self.post.group)
-        self.assertIn('page_obj', response.context)
-        self.assertEqual(post_image_0, self.post.image)
+        response = self.guest_client.get(reverse('posts:main_page'))
+        self.assertEqual(response.context.get('page_obj')[0], self.post)
+        cache.clear()
 
     def test_group_list_correct_context(self):
-        image = self.post.image
-        response = (self.authorized_client.
-                    get(reverse(
-                        'posts:group_list', kwargs={'slug': 'test-slug'}))
-                    )
-        self.assertEqual(
-            response.context.get('group').title, 'Тестовая группа'
-        )
-        self.assertEqual(
-            response.context.get('group').description, 'Тестовое описание'
-        )
-        self.assertEqual(response.context.get('group').slug, 'test-slug')
-        self.assertEqual(response.context.get('page_obj')[0].image, image)
+        response = reverse(
+            'posts:group_list', kwargs={'slug': self.group.slug})
+        response = self.authorized_client.get(response)
+        self.assertEqual(response.context.get('group'), self.group)
+        cache.clear()
+
+        response = reverse(
+            'posts:group_list', kwargs={'slug': self.group.slug})
+        response = self.guest_client.get(response)
+        self.assertEqual(response.context.get('group'), self.group)
+        cache.clear()
 
     def test_profile_correct_context(self):
-        image = self.post.image
-        response = (self.authorized_client.
-                    get(reverse('posts:profile', kwargs={'username': 'auth'}))
-                    )
-        self.assertEqual(response.context['author'].username, 'auth')
-        self.assertEqual(response.context.get('page_obj')[0].image, image)
+        response = reverse('posts:profile', kwargs={'username': self.user})
+        response = self.authorized_client.get(response)
+        self.assertEqual(response.context.get('author'), self.user)
+        cache.clear()
+
+        response = reverse('posts:profile', kwargs={'username': self.user})
+        response = self.guest_client.get(response)
+        self.assertEqual(response.context.get('author'), self.user)
         cache.clear()
 
     def test_post_detail_correct_context(self):
-        image = self.post.image
-        response = (self.authorized_client.
-                    get(reverse(
-                        'posts:post_detail',
-                        kwargs={'post_id': f'{self.post.id}'}))
-                    )
-        self.assertEqual(
-            response.context['post'].id, int(f'{self.post.id}')
-        )
-        self.assertEqual(response.context.get('post').image, image)
+        response = reverse(
+            'posts:post_detail', kwargs={'post_id': self.post.id})
+        response = self.authorized_client.get(response)
+        self.assertEqual(response.context.get('post').id, self.post.id)
+        cache.clear()
+
+        response = reverse('posts:profile', kwargs={'username': self.user})
+        response = self.guest_client.get(response)
+        self.assertEqual(response.context.get('author'), self.user)
+        cache.clear()
 
     def test_post_create_correct_context(self):
         response = self.authorized_client.get(reverse('posts:post_create'))
@@ -141,22 +134,13 @@ class PostsURLTests(TestCase):
             with self.subTest(value=value):
                 form_field = response.context['form'].fields[value]
                 self.assertIsInstance(form_field, expected)
+        cache.clear()
 
     def test_post_edit_correct_context(self):
-        response = (self.authorized_client.
-                    get(reverse(
-                        'posts:post_edit',
-                        kwargs={"post_id": f'{self.post.id}'}))
-                    )
-        form_fields = {
-            'text': forms.fields.CharField,
-            'group': forms.models.ModelChoiceField,
-        }
-        for value, expected in form_fields.items():
-            with self.subTest(value=value):
-                form_field = response.context.get('form').fields.get(value)
-                self.assertIsInstance(form_field, expected)
-        self.assertTrue(response.context['form'])
+        url = reverse('posts:post_edit', kwargs={'post_id': self.post.id})
+        response = self.authorized_client.get(url)
+        self.assertEqual(response.context.get('post').id, self.post.id)
+        cache.clear()
 
     def test_create_post_in_page_group(self):
         form_fields = {
@@ -172,8 +156,9 @@ class PostsURLTests(TestCase):
         for value, expected in form_fields.items():
             with self.subTest(value=value):
                 response = self.authorized_client.get(value)
-                form_field = response.context["page_obj"]
+                form_field = response.context['page_obj']
                 self.assertIn(expected, form_field)
+        cache.clear()
 
     def test_post_do_not_go_to_another_group(self):
         form_fields = {
@@ -186,6 +171,7 @@ class PostsURLTests(TestCase):
                 response = self.authorized_client.get(value)
                 form_field = response.context["page_obj"]
                 self.assertNotIn(expected, form_field)
+        cache.clear()
 
 
 class PaginatorModelTest(TestCase):
@@ -209,6 +195,7 @@ class PaginatorModelTest(TestCase):
             )
 
     def setUp(self):
+        cache.clear()
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(PaginatorModelTest.user)
@@ -216,18 +203,21 @@ class PaginatorModelTest(TestCase):
     def test_index_paginator(self):
         response = self.authorized_client.get(reverse('posts:main_page'))
         self.assertEqual(len(response.context['page_obj']), 10)
+        cache.clear()
 
     def test_group_list_paginator(self):
         response = self.authorized_client.get(
             reverse('posts:group_list', kwargs={'slug': 'test-slug'})
         )
         self.assertEqual(len(response.context['page_obj']), 10)
+        cache.clear()
 
     def test_profile_paginator(self):
         response = self.authorized_client.get(
             reverse('posts:profile', kwargs={'username': f'{self.user}'})
         )
         self.assertEqual(len(response.context['page_obj']), 10)
+        cache.clear()
 
 
 class FollowTest(TestCase):
@@ -242,6 +232,7 @@ class FollowTest(TestCase):
         )
 
     def setUp(self):
+        cache.clear()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user1)
 
@@ -250,6 +241,7 @@ class FollowTest(TestCase):
         self.authorized_client.get(follow_url)
         response = self.authorized_client.get(reverse('posts:follow_index'))
         self.assertEqual(response.context.get('page_obj')[0], self.post)
+        cache.clear()
 
     def test_follow(self):
         follow_url = f'/profile/{self.user2.username}/follow/'
@@ -259,6 +251,7 @@ class FollowTest(TestCase):
                 user=self.user1,
                 author=self.user2,
             ).exists())
+        cache.clear()
 
     def test_unfollow(self):
         follow_url = f'/profile/{self.user2.username}/follow/'
@@ -270,3 +263,4 @@ class FollowTest(TestCase):
                 user=self.user1,
                 author=self.user2,
             ).exists())
+        cache.clear()
