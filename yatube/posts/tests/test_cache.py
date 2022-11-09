@@ -21,7 +21,8 @@ class PostModelTest(TestCase):
     def setUp(self):
         cache.clear()
         self.guest_client = Client()
-        self.authorized_client = Client()
+        self.client = Client()
+        self.client.force_login(self.user)
 
     def test_cache(self):
         initial_response = self.guest_client.get(reverse('posts:main_page'))
@@ -47,7 +48,7 @@ class PostModelTest(TestCase):
         cache.clear()
 
     def test_cache_authorized(self):
-        initial_response = self.authorized_client.get(
+        initial_response = self.client.get(
             reverse('posts:main_page'))
         self.assertIn('page_obj', initial_response.context)
 
@@ -58,13 +59,13 @@ class PostModelTest(TestCase):
         Post.objects.all().delete()
 
         self.assertEqual(Post.objects.count(), 0)
-        cached_response = self.authorized_client.get(
+        cached_response = self.client.get(
             reverse('posts:main_page'))
         self.assertEqual(initial_response.content, cached_response.content)
 
         cache.clear()
 
-        clear_response = self.authorized_client.get(reverse('posts:main_page'))
+        clear_response = self.client.get(reverse('posts:main_page'))
         self.assertIn('page_obj', clear_response.context)
         clear_response_posts_count = len(
             clear_response.context['page_obj'].object_list)

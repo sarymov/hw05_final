@@ -18,7 +18,7 @@ class PostModelTest(TestCase):
         )
         cls.post = Post.objects.create(
             author=cls.user,
-            text='7 * 20',
+            text='7' * 120,
         )
 
     def test_models_have_correct_object_names(self):
@@ -28,5 +28,5 @@ class PostModelTest(TestCase):
 
     def test_first_15_characters(self):
         post = PostModelTest.post
-        expected_first_15_char = post.text[:15]
+        expected_first_15_char = post.text[:100]
         self.assertEqual(expected_first_15_char, str(post))
