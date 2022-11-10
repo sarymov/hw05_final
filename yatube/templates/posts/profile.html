@@ -4,6 +4,7 @@
 {% block content %}        
 <h1>Все посты пользователя {{author.get_full_name}} </h1>
   <h3>Всего постов: {{ postscount }} </h3>   
+    {% if request.user != author %}
       {% if following %}
         <a
           class="btn btn-lg btn-light"
@@ -17,10 +18,11 @@
           Подписаться
         </a>
       {% endif %}
+    {% endif %}
       {% for post in page_obj %}
       {% include 'posts/posts.html' %}                         
       {% if not forloop.last %}<hr>{% endif %}
     {% endfor %}
     {% include 'posts/includes/paginator.html' %}
-  </div>
 {% endblock %}
+

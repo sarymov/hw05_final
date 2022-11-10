@@ -54,10 +54,10 @@ class PostsURLTests(TestCase):
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def setUp(self):
-        cache.clear()
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
+        cache.clear()
 
     def test_pages_uses_correct_template(self):
         templates_pages_names = {
@@ -82,9 +82,9 @@ class PostsURLTests(TestCase):
     def test_index_page_show_correct_context(self):
         response = self.authorized_client.get(reverse('posts:main_page'))
         self.assertEqual(response.context.get('page_obj')[0], self.post)
-        '''По неведомым для меня причинам - если убрать ниже cache.clear(),
-         ломается этот тест со словами NoneType object has no
-         attribure 'get'. '''
+        # По неведомым для меня причинам - если убрать ниже cache.clear(),
+        # ломается этот тест со словами NoneType object has no
+        # attribure 'get'. '''
         cache.clear()
 
         response = self.guest_client.get(reverse('posts:main_page'))
@@ -177,7 +177,7 @@ class PaginatorModelTest(TestCase):
             description='Тестовое описание',
         )
         cls.test_posts: list = []
-        for i in range(10):
+        for i in range(15):
             cls.test_posts.append(
                 Post.objects.create(
                     author=cls.user,
@@ -198,7 +198,7 @@ class PaginatorModelTest(TestCase):
     def test_index_next_page(self):
         response = self.authorized_client.get(
             reverse('posts:main_page') + '?page=2')
-        self.assertEqual(len(response.context['page_obj']), 10)
+        self.assertEqual(len(response.context['page_obj']), 5)
 
     def test_group_list_paginator(self):
         response = self.authorized_client.get(

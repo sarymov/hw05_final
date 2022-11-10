@@ -39,11 +39,11 @@ def profile(request, username):
     author = get_object_or_404(User, username=username)
     posts = author.posts.select_related('author', 'group')
     page_obj = paginate_func(request, posts)
-    follow = request.user.is_authenticated and Follow.objects.filter(
+    following = request.user.is_authenticated and Follow.objects.filter(
         user=request.user,
         author=author).exists()
     context = {
-        'follow': follow,
+        'following': following,
         'author': author,
         'page_obj': page_obj,
         'postscount': posts.count(),
@@ -53,7 +53,7 @@ def profile(request, username):
 
 def post_detail(request, post_id):
     post = get_object_or_404(Post, pk=post_id)
-    form = CommentForm(request.POST or None)
+    form = CommentForm()
     comments = post.comments.all()
 
     context = {
