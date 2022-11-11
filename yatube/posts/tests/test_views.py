@@ -206,6 +206,13 @@ class PaginatorModelTest(TestCase):
         )
         self.assertEqual(len(response.context['page_obj']), 10)
 
+    def test_group_list_paginator(self):
+        response = self.authorized_client.get(
+            reverse('posts:group_list', kwargs={
+                'slug': 'test-slug'}) + '?page=2'
+        )
+        self.assertEqual(len(response.context['page_obj']), 5)
+
     def test_profile_paginator(self):
         response = self.authorized_client.get(
             reverse('posts:profile', kwargs={'username': f'{self.user}'})
